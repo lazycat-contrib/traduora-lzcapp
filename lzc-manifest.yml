@@ -1,0 +1,69 @@
+application:
+  subdomain: traduora
+  multi_instance: false
+  # The app ships its own account system (sign-in / invite), so it is exposed
+  # directly and authenticates users itself.
+  public_path:
+    - /
+  upstreams:
+    - location: /
+      backend: http://traduora:8080/
+
+services:
+  db:
+    image: docker.1ms.run/library/postgres:15-alpine
+    environment:
+      - POSTGRES_DB=traduora
+      - POSTGRES_USER=traduora
+      - POSTGRES_PASSWORD={{ printf "%x" (stable_secret "db_password") }}
+    binds:
+      - /lzcapp/var/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traduora -d traduora"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  traduora:
+    # upstream: everco/ever-traduora:0.23.0
+    image: docker.1ms.run/everco/ever-traduora:0.23.0
+    environment:
+      - TR_DB_TYPE=postgres
+      - TR_DB_HOST=db
+      - TR_DB_PORT=5432
+      - TR_DB_USER=traduora
+      - TR_DB_PASSWORD={{ printf "%x" (stable_secret "db_password") }}
+      - TR_DB_DATABASE=traduora
+      # Signs auth tokens; must stay stable or everyone gets signed out.
+      - TR_SECRET={{ stable_secret "tr_secret" }}
+      # Upstream refuses publicly known passwords and requires this one, so the
+      # admin account is created here with a per-install random value.
+      - TR_ADMIN_EMAIL={{ .U.admin_email }}
+      - TR_ADMIN_PASSWORD={{ .U.admin_password }}
+      - TR_ADMIN_NAME=Admin
+      - NODE_ENV=production
+      - TZ=Asia/Shanghai
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 90s
+    depends_on:
+      - db
+
+usage: |
+  Traduora 是自托管的翻译管理平台：把项目的词条、语言和译文集中维护，
+  交给译者协作翻译，再导出成应用可用的资源文件。
+
+  - 用部署时设置的**管理员邮箱和密码**登录；上游明确要求管理员密码必须设置，
+    且会拒绝公开已知的默认密码，本包使用随机生成的强密码。
+    首次登录后可在界面里修改这些凭据。
+  - 应用自带账号体系，所以它直接对外开放（public_path），
+    登录与权限都由 Traduora 自己负责；其他成员由管理员在界面里邀请。
+  - 后台由 PostgreSQL 组成（两个服务都在应用内部），不需要你另外准备数据库。
+  - **未配置邮件服务**：邀请成员等依赖邮件的功能需要你自行配置 SMTP 后才能正常发信，
+    不配也不影响管理员登录与基本使用。
+  - 未做真机验证：登录、创建项目与语言、编辑译文、导出文件以及重启后数据留存
+    均未在设备上实测。

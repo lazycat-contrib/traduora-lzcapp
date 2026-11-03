@@ -1,0 +1,18 @@
+package: community.lazycat.app.traduora
+name: Traduora
+version: 0.0.0
+description: "Self-hosted translation management: keep terms, locales and translations in one place and export them to your app."
+min_os_version: "1.5.0"
+homepage: https://traduora.co/
+author: Ever Co
+license: AGPL-3.0
+permissions:
+  required:
+    - net.internet
+locales:
+  zh:
+    name: Traduora
+    description: "自托管翻译管理：集中维护词条、语言与译文，并导出给应用使用。"
+  en:
+    name: Traduora
+    description: "Self-hosted translation management: keep terms, locales and translations in one place and export them to your app."
